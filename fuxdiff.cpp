@@ -378,6 +378,119 @@ struct SceneryDefinition {
     big_uint16_t destroyed_shape;
 };
 
+struct WeaponInterfaceAmmoDefinition {
+    pt::ptree diff(int index, const WeaponInterfaceAmmoDefinition& other) {
+        pt::ptree tree;
+
+        if (type != other.type ||
+            screen_left != other.screen_left ||
+            screen_top != other.screen_top ||
+            ammo_across != other.ammo_across ||
+            ammo_down != other.ammo_down ||
+            delta_x != other.delta_x ||
+            delta_y != other.delta_y ||
+            bullet != other.bullet ||
+            empty_bullet != other.empty_bullet ||
+            right_to_left != other.right_to_left)
+        {
+            tree.put("ammo.<xmlattr>.index", index);
+            tree.put("ammo.<xmlattr>.type", other.type);
+            tree.put("ammo.<xmlattr>.left", other.screen_left);
+            tree.put("ammo.<xmlattr>.top", other.screen_top);
+            tree.put("ammo.<xmlattr>.across", other.ammo_across);
+            tree.put("ammo.<xmlattr>.down", other.ammo_down);
+            tree.put("ammo.<xmlattr>.delta_x", other.delta_x);
+            tree.put("ammo.<xmlattr>.delta_y", other.delta_y);
+            tree.put("ammo.<xmlattr>.bullet_shape", other.bullet);
+            tree.put("ammo.<xmlattr>.empty_shape", other.empty_bullet);
+            tree.put("ammo.<xmlattr>.right_to_left", other.right_to_left != 0);
+        }
+
+        return tree;
+    }
+    
+    big_int16_t type;
+    big_int16_t screen_left;
+    big_int16_t screen_top;
+    big_int16_t ammo_across;
+    big_int16_t ammo_down;
+    big_int16_t delta_x;
+    big_int16_t delta_y;
+    big_int16_t bullet;
+    big_int16_t empty_bullet;
+    big_uint16_t right_to_left;
+};
+
+bool operator==(const WeaponInterfaceAmmoDefinition& a, const WeaponInterfaceAmmoDefinition& b)
+{
+    return a.type == b.type &&
+        a.screen_left == b.screen_left &&
+        a.screen_top == b.screen_top &&
+        a.ammo_across == b.ammo_across &&
+        a.ammo_down == b.ammo_down &&
+        a.delta_x == b.delta_x &&
+        a.delta_y == b.delta_y &&
+        a.bullet == b.bullet &&
+        a.empty_bullet == b.empty_bullet &&
+        a.right_to_left == b.right_to_left;
+}
+
+bool operator!=(const WeaponInterfaceAmmoDefinition& a, const WeaponInterfaceAmmoDefinition& b)
+{
+    return !(a == b);
+}
+
+struct WeaponInterfaceDefinition {
+    pt::ptree diff(int index, const WeaponInterfaceDefinition& other) {
+        pt::ptree tree;
+        if (item_id != other.item_id) {
+            std::cerr << "Weapon HUD items changed; Aleph One does not support this!\n";
+        }
+        
+        if (weapon_panel_shape != other.weapon_panel_shape ||
+            weapon_name_start_y != other.weapon_name_start_y ||
+            weapon_name_end_y != other.weapon_name_end_y ||
+            weapon_name_start_x != other.weapon_name_start_x ||
+            weapon_name_end_x != other.weapon_name_end_x ||
+            standard_weapon_panel_top != other.standard_weapon_panel_top ||
+            standard_weapon_panel_left != other.standard_weapon_panel_left ||
+            multi_weapon != other.multi_weapon ||
+            ammo_data[0] != other.ammo_data[0] ||
+            ammo_data[1] != other.ammo_data[1])
+        {
+            tree.put("weapon.<xmlattr>.index", index);
+            tree.put("weapon.<xmlattr>.shape", other.weapon_panel_shape);
+            tree.put("weapon.<xmlattr>.start_y", other.weapon_name_start_y);
+            tree.put("weapon.<xmlattr>.end_y", other.weapon_name_end_y);
+            tree.put("weapon.<xmlattr>.start_x", other.weapon_name_start_x);
+            tree.put("weapon.<xmlattr>.end_x", other.weapon_name_end_x);
+            tree.put("weapon.<xmlattr>.top", other.standard_weapon_panel_top);
+            tree.put("weapon.<xmlattr>.left", other.standard_weapon_panel_left);
+            tree.put("weapon.<xmlattr>.multiple", other.multi_weapon != 0);
+
+            for (auto i = 0; i < 2; ++i) {
+                auto ammo_tree = ammo_data[i].diff(i, other.ammo_data[i]);
+                if (!ammo_tree.empty()) {
+                    tree.add_child("weapon.ammo", ammo_tree.get_child("ammo"));
+                }
+            }
+        }
+
+        return tree;
+    }
+    
+    big_int16_t item_id;
+    big_int16_t weapon_panel_shape;
+    big_int16_t weapon_name_start_y;
+    big_int16_t weapon_name_end_y;
+    big_int16_t weapon_name_start_x;
+    big_int16_t weapon_name_end_x;
+    big_int16_t standard_weapon_panel_top;
+    big_int16_t standard_weapon_panel_left;
+    big_uint16_t multi_weapon;
+
+    WeaponInterfaceAmmoDefinition ammo_data[2];
+};
 
 class Fuxstate {
 public:
@@ -389,6 +502,7 @@ public:
     std::array<ControlPanelDefinition, 54> control_panels;
     std::array<DamageResponse, 24> damage_responses;
     std::array<FadeDefinition, 32> fade_definitions;
+    std::array<RGBColor, 4> infravision_colors;
     std::array<LineDefinition, 3> line_definitions;
     RGBColor map_name_color;
     std::array<MediaDefinition, 5> media_definitions;
@@ -396,6 +510,7 @@ public:
     std::array<big_int16_t, 5> random_sounds;
     std::array<SceneryDefinition, 61> scenery_definitions;
     std::map<Tag, std::vector<char>> tags;
+    std::array<WeaponInterfaceDefinition, 10> weapon_interface_definitions;
 };
 
 void Fuxstate::diff(Fuxstate& other)
@@ -418,6 +533,12 @@ void Fuxstate::diff(Fuxstate& other)
         }
     }
 
+    for (auto i = 0; i < infravision_colors.size(); ++i) {
+        auto child = infravision_colors[i].diff(i, other.infravision_colors[i]);
+        if (!child.empty()) {
+            tree.add_child("marathon.infravision.color", child.get_child("color"));
+        }
+    }
 
     // overhead map colors
     for (auto i = 0; i < polygon_colors.size(); ++i) {
@@ -516,14 +637,36 @@ void Fuxstate::diff(Fuxstate& other)
         }
     }
 
+    for (auto i = 0; i < weapon_interface_definitions.size(); ++i) {
+        auto child = weapon_interface_definitions[i].diff(i, other.weapon_interface_definitions[i]);
+        if (!child.empty()) {
+            tree.add_child("marathon.interface.weapon", child.get_child("weapon"));
+        }
+    }
+
     std::ostringstream oss;
     pt::xml_writer_settings<std::string> settings(' ', 4);
     pt::write_xml(std::cout, tree, settings);
+
+    auto physics_differ = false;
     
     for (auto kvp : tags) {
         if (other.tags[kvp.first] != kvp.second) {
-            std::cerr << kvp.first << " differs (" << other.tags[kvp.first].size() << ")\n";
+            if (kvp.first == Tag{'E','f','f','x'} ||
+                kvp.first == Tag{'I','t','e','m'} ||
+                kvp.first == Tag{'M','o','n','s'} ||
+                kvp.first == Tag{'P','r','o','j'} ||
+                kvp.first == Tag{'W','e','p','1'})
+            {
+                physics_differ = true;
+            } else {
+                std::cerr << kvp.first << " differs (" << other.tags[kvp.first].size() << ")\n";
+            }
         }
+    }
+
+    if (physics_differ) {
+        std::cerr << "Physics models differ\n";
     }
 }
 
@@ -547,6 +690,9 @@ void Fuxstate::load(std::istream& s)
         } else if (header.tag == Tag{'D','a','m','g'}) {
             assert(header.length = 288);
             s.read(reinterpret_cast<char*>(damage_responses.data()), 288);
+        } else if (header.tag == Tag{'I','v','c','l'}) {
+            assert(header.length == 24);
+            s.read(reinterpret_cast<char*>(infravision_colors.data()), 24);
         } else if (header.tag == Tag{'M','d','i','a'}) {
             assert(header.length == 260);
             s.read(reinterpret_cast<char*>(media_definitions.data()), 260);
@@ -575,6 +721,9 @@ void Fuxstate::load(std::istream& s)
             assert(header.length == 28);
             // there's no meaningful way to translate this to MML
             s.seekg(28, s.cur);
+        } else if (header.tag == Tag{'W','e','p','2'}) {
+            assert(header.length == 580);
+            s.read(reinterpret_cast<char*>(weapon_interface_definitions.data()), 580);
         } else {
             auto& v = tags[header.tag];
             v.resize(header.length);
