@@ -1,8 +1,8 @@
-all: fuxdiff strdiff
+all: fuxdiff resdiff
 
 fuxdiff: fuxdiff.cpp
 	g++ -o fuxdiff -std=c++11 fuxdiff.cpp
 
-strdiff: strdiff.cpp macroman.cpp
-	g++ -o strdiff -std=c++11 strdiff.cpp macroman.cpp
+resdiff: resdiff.cpp macroman.cpp
+	g++ -o resdiff -std=c++11 resdiff.cpp macroman.cpp
 

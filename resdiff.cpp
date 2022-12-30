@@ -1,5 +1,5 @@
 /*
-    strdiff: generates MML describing the string differences between two 
+    resdiff: generates MML describing the resource fork differences between two 
         MacBinary-encoded Marathon Infinity-derived engines
     Copyright (C) 2022 Gregory Smith
 
@@ -57,6 +57,88 @@ struct RefListEntry {
     big_uint32_t unused;
 };
 
+struct RGBColor {
+    pt::ptree diff(const RGBColor& other) {
+        pt::ptree tree;
+
+        if (r != other.r ||
+            g != other.g ||
+            b != other.b)
+        {
+            tree.put("color.<xmlattr>.red", other.r / 65535.0);
+            tree.put("color.<xmlattr>.green", other.g / 65535.0);
+            tree.put("color.<xmlattr>.blue", other.b / 65535.0);
+        }
+
+        return tree;
+    }
+
+    pt::ptree diff(int index, const RGBColor& other) {
+        pt::ptree tree;
+
+        if (r != other.r ||
+            g != other.g ||
+            b != other.b)
+        {
+            tree.put("color.<xmlattr>.index", index);
+            tree.put("color.<xmlattr>.red", other.r / 65535.0);
+            tree.put("color.<xmlattr>.green", other.g / 65535.0);
+            tree.put("color.<xmlattr>.blue", other.b / 65535.0);
+        }
+
+        return tree;
+    }
+    
+    big_uint16_t r;
+    big_uint16_t g;
+    big_uint16_t b;
+};
+
+bool operator==(const RGBColor& a, const RGBColor& b)
+{
+    return a.r == b.r && a.g == b.g && a.b == b.b;
+}
+
+bool operator!=(const RGBColor& a, const RGBColor& b)
+{
+    return !(a == b);
+}
+
+struct Rect {
+    pt::ptree diff(int index, const Rect& other) {
+        pt::ptree tree;
+
+        if (top != other.top ||
+            left != other.left ||
+            bottom != other.bottom ||
+            right != other.right)
+        {
+            tree.put("rect.<xmlattr>.index", index);
+            tree.put("rect.<xmlattr>.top", other.top);
+            tree.put("rect.<xmlattr>.left", other.left);
+            tree.put("rect.<xmlattr>.bottom", other.bottom);
+            tree.put("rect.<xmlattr>.right", other.right);
+        }
+
+        return tree;
+    }
+    
+    big_uint16_t top;
+    big_uint16_t left;
+    big_uint16_t bottom;
+    big_uint16_t right;
+};
+
+bool operator==(const Rect& a, const Rect& b)
+{
+    return a.top == b.top && a.left == b.left &&
+        a.bottom == b.bottom && a.right == b.right;
+}
+
+bool operator!=(const Rect& a, const Rect& b) {
+    return !(a == b);
+}
+
 class MacBinary {
 public:
     class Exception : public std::runtime_error {
@@ -77,6 +159,8 @@ private:
     void load_resources();
 
     std::map<int, std::vector<std::string>> strings_;
+    std::array<RGBColor, 26> interface_colors_;
+    std::array<Rect, 18> interface_rects_;
 
     std::ifstream stream_;
 };
@@ -139,6 +223,8 @@ void MacBinary::load_resources()
     stream_.read(reinterpret_cast<char*>(type_list.data()), num_types * 8);
 
     std::map<int16_t, uint32_t> str_offsets;
+    uint32_t clut_130_offset = 0;
+    uint32_t nrct_128_offset = 0;
 
     for (auto& type_list_entry : type_list) {
         if (type_list_entry.type == ResourceType{'S','T','R','#'}) {
@@ -147,7 +233,22 @@ void MacBinary::load_resources()
                 stream_.read(reinterpret_cast<char*>(&ref_list_entry), 12);
                 str_offsets[ref_list_entry.id] = ref_list_entry.data_offset & 0x00ffffff;
             }
-            break;
+        } else if (type_list_entry.type == ResourceType{'c','l','u','t'}) {
+            for (auto i = 0; i < type_list_entry.num_refs + 1; ++i) {
+                RefListEntry ref_list_entry;
+                stream_.read(reinterpret_cast<char*>(&ref_list_entry), 12);
+                if (ref_list_entry.id == 130) {
+                    clut_130_offset = ref_list_entry.data_offset & 0x00ffffff;
+                }
+            }
+        } else if (type_list_entry.type == ResourceType{'n','r','c','t'}) {
+            for (auto i = 0; i < type_list_entry.num_refs + 1; ++i) {
+                RefListEntry ref_list_entry;
+                stream_.read(reinterpret_cast<char*>(&ref_list_entry), 12);
+                if (ref_list_entry.id == 128) {
+                    nrct_128_offset = ref_list_entry.data_offset & 0x00ffffff;
+                }
+            }
         } else {
             stream_.seekg((type_list_entry.num_refs + 1) * 12, stream_.cur);
         }
@@ -176,12 +277,63 @@ void MacBinary::load_resources()
             v.push_back(s);
         }
     }
+
+    {
+        // clut id 130 sets interface colors
+        stream_.seekg(clut_130_offset + header.data_offset);
+
+        big_uint32_t length;
+        stream_.read(reinterpret_cast<char*>(&length), 4);
+
+        big_uint32_t seed;
+        stream_.read(reinterpret_cast<char*>(&length), 4);
+
+        big_uint16_t flags;
+        stream_.read(reinterpret_cast<char*>(&flags), 2);
+
+        big_uint16_t num_colors;
+        stream_.read(reinterpret_cast<char*>(&num_colors), 2);
+
+        if (num_colors != 25) {
+            std::ostringstream oss;
+            oss << "Unexpected number colors in clut 130: " << num_colors;
+            throw std::runtime_error(oss.str());
+        }
+
+        for (auto i = 0; i < num_colors; ++i) {
+            big_uint16_t pixel_value;
+            stream_.read(reinterpret_cast<char*>(&pixel_value), 2);
+            stream_.read(reinterpret_cast<char*>(&interface_colors_[i]), 6);
+        }
+    }
+
+    {
+        // ntct 128 sets interface rectangles
+        stream_.seekg(nrct_128_offset + header.data_offset);
+
+        big_uint32_t length;
+        stream_.read(reinterpret_cast<char*>(&length), 4);
+
+        big_uint16_t num_rects;
+        stream_.read(reinterpret_cast<char*>(&num_rects), 2);
+
+        if (num_rects != 18) {
+            std::ostringstream oss;
+            oss << "Unexpected number of colors in nrct 128: " << num_rects;
+            throw std::runtime_error(oss.str());
+        }
+
+        for (auto i = 0; i < num_rects; ++i) {
+            stream_.read(reinterpret_cast<char*>(&interface_rects_[i]), 8);
+        }
+    }
+        
 }
 
 void MacBinary::diff(MacBinary& other)
 {
     pt::ptree tree;
-    tree.add("<xmlcomment>", "Generated by strdiff");
+    tree.add("<xmlcomment>", "Generated by resdiff");
     for (auto& id : strings_) {
         if (id.first == 129) {
             // skip filenames
@@ -215,6 +367,20 @@ void MacBinary::diff(MacBinary& other)
 
         if (found_diff) {
             tree.add_child("marathon.stringset", stringset_tree.get_child("stringset"));
+        }
+    }
+
+    for (auto i = 0; i < 25; ++i) {
+        if (interface_colors_[i] != other.interface_colors_[i]) {
+            auto color_tree = interface_colors_[i].diff(i, other.interface_colors_[i]);
+            tree.add_child("marathon.interface.color", color_tree.get_child("color"));
+        }
+    }
+
+    for (auto i = 0; i < 18; ++i) {
+        if (interface_rects_[i] != other.interface_rects_[i]) {
+            auto rect_tree = interface_rects_[i].diff(i, other.interface_rects_[i]);
+            tree.add_child("marathon.interface.rect", rect_tree.get_child("rect"));
         }
     }
 
