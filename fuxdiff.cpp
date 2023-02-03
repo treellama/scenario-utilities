@@ -115,20 +115,20 @@ struct ControlPanelDefinition {
             sound_frequency != other.sound_frequency ||
             item != other.item)
         {
-            tree.put("control_panel.<xmlattr>.index", index);
-            tree.put("control_panel.<xmlattr>.type", other.panel_class);
-            tree.put("control_panel.<xmlattr>.coll", other.collection);
-            tree.put("control_panel.<xmlattr>.active_frame", other.active_shape);
-            tree.put("control_panel.<xmlattr>.inactive_frame", other.inactive_shape);
-            tree.put("control_panel.<xmlattr>.pitch", other.sound_frequency / 65536.0);
-            tree.put("control_panel.<xmlattr>.item", other.item);
+            tree.put("panel.<xmlattr>.index", index);
+            tree.put("panel.<xmlattr>.type", other.panel_class);
+            tree.put("panel.<xmlattr>.coll", other.collection);
+            tree.put("panel.<xmlattr>.active_frame", other.active_shape);
+            tree.put("panel.<xmlattr>.inactive_frame", other.inactive_shape);
+            tree.put("panel.<xmlattr>.pitch", other.sound_frequency / 65536.0);
+            tree.put("panel.<xmlattr>.item", other.item);
             for (auto i = 0; i < sounds.size(); ++i) {
                 if (sounds[i] != other.sounds[i]) {
                     pt::ptree sound_tree;
                     sound_tree.put("sound.<xmlattr>.index", i);
                     sound_tree.put("sound.<xmlattr>.which", other.sounds[i]);
 
-                    tree.add_child("control_panel.sound", sound_tree.get_child("sound"));
+                    tree.add_child("panel.sound", sound_tree.get_child("sound"));
                 }
             }
         }
@@ -522,7 +522,7 @@ void Fuxstate::diff(Fuxstate& other)
     for (auto i = 0; i < control_panels.size(); ++i) {
         auto child = control_panels[i].diff(i, other.control_panels[i]);
         if (!child.empty()) {
-            tree.add_child("marathon.control_panels.control_panel", child.get_child("control_panel"));
+            tree.add_child("marathon.control_panels.panel", child.get_child("panel"));
         }
     }
     
