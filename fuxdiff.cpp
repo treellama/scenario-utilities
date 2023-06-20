@@ -175,7 +175,7 @@ struct DamageDefinition {
 };
 
 struct DamageResponse {
-    pt::ptree diff(const DamageResponse& other) {
+    pt::ptree diff(const DamageResponse& other, int index) {
         pt::ptree tree;
 
         assert(type == other.type);
@@ -186,7 +186,7 @@ struct DamageResponse {
             death_sound != other.death_sound ||
             death_action != other.death_action)
         {
-            tree.put("damage.<xmlattr>.index", other.type);
+            tree.put("damage.<xmlattr>.index", index);
             tree.put("damage.<xmlattr>.threshold", other.threshold);
             tree.put("damage.<xmlattr>.fade", other.fade);
             tree.put("damage.<xmlattr>.sound", other.sound);
@@ -607,7 +607,7 @@ void Fuxstate::diff(Fuxstate& other)
     }
     
     for (auto i = 0; i < damage_responses.size(); ++i) {
-        auto child = damage_responses[i].diff(other.damage_responses[i]);
+        auto child = damage_responses[i].diff(other.damage_responses[i], i);
         if (!child.empty()) {
             tree.add_child("marathon.player.damage", child.get_child("damage"));
         }
