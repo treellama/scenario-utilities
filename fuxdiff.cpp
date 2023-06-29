@@ -659,6 +659,8 @@ void Fuxstate::diff(Fuxstate& other)
                 kvp.first == Tag{'W','e','p','1'})
             {
                 physics_differ = true;
+            } else if (kvp.first == Tag{'I','v','r','m'}) {
+                std::cerr << "'Ivrm' differs, but Aleph One does not support 8-bit infravision MML\n";
             } else {
                 std::cerr << kvp.first << " differs (" << other.tags[kvp.first].size() << ")\n";
             }
