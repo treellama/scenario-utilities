@@ -125,7 +125,7 @@ struct ControlPanelDefinition {
             for (auto i = 0; i < sounds.size(); ++i) {
                 if (sounds[i] != other.sounds[i]) {
                     pt::ptree sound_tree;
-                    sound_tree.put("sound.<xmlattr>.index", i);
+                    sound_tree.put("sound.<xmlattr>.type", i);
                     sound_tree.put("sound.<xmlattr>.which", other.sounds[i]);
 
                     tree.add_child("panel.sound", sound_tree.get_child("sound"));
@@ -298,7 +298,7 @@ struct MediaDefinition {
                 // TODO: should we always include these? or only when different?
                 if (detonation_effects[i] != other.detonation_effects[i]) {
                     pt::ptree effect_tree;
-                    effect_tree.put("effect.<xmlattr>.index", i);
+                    effect_tree.put("effect.<xmlattr>.type", i);
                     effect_tree.put("effect.<xmlattr>.which", other.detonation_effects[i]);
                     tree.add_child("liquid.effect", effect_tree.get_child("effect"));
                 }
@@ -307,7 +307,7 @@ struct MediaDefinition {
                 // TODO: should we always include these? or only when different?
                 if (sounds[i] != other.sounds[i]) {
                     pt::ptree sound_tree;
-                    sound_tree.put("sound.<xmlattr>.index", i);
+                    sound_tree.put("sound.<xmlattr>.type", i);
                     sound_tree.put("sound.<xmlattr>.which", other.sounds[i]);
                     tree.add_child("liquid.sound", sound_tree.get_child("sound"));
                 }
